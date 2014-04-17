@@ -5,10 +5,7 @@ module Dauphin
     attr_reader :path
 
     def initialize(exepath=nil)
-      puts "Making new Runtime(#{self.inspect}), path: #{exepath.inspect}"
       @path = exepath || default_executable_path
-      puts "default_executable_path: #{path}"
-      puts "Path: #{@path}"
       check_for_binary
     end
 

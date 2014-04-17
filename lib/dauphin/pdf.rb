@@ -1,11 +1,12 @@
 module Dauphin
   class Pdf
-    attr_accessor :executable, :stylesheets, :logger, :log_file
+    attr_accessor :executable, :stylesheets, :logger, :log_file, :prince_logging
 
     def initialize(opt={})
       options = {
           :path => nil,
           :executable => Dauphin.runtime,
+          :prince_logging => false,
           :log_file => nil,
           :logger => nil
       }.merge(opt)
@@ -14,6 +15,7 @@ module Dauphin
       @stylesheets = ''
       @log_file = options[:log_file]
       @logger = options[:logger]
+      @prince_logging = options[:prince_logging]
     end
 
     def logger
@@ -30,52 +32,56 @@ module Dauphin
 
     def exe
       @executable.join(executable_options)
-      puts "@executable: #{@executable.inspect}"
-      @executable.join(executable_options)
     end
 
     def executable_options
       options = []
-      options << "--input=html"
-      options << "--log=#{log_file}"
-      options << @stylesheets
+      options << '--input=html'
+      options << "--log=#{log_file}" if @prince_logging
+      options << @stylesheets || ''
       options
     end
 
+    def prince_version
+      `#{executable.path + ' --version'}`
+    end
+
+
+    # @return A string containing the PDF binary data
     def mkpdf_stream(string, output_file = '-')
-      pdf = create_pdf string, output_file, {:output_to_log_file => false}
-      pdf.close_write
-
-      result = pdf.gets
-      pdf.close_read
-
-      result.force_encoding(Encoding::BINARY) if RUBY_VERSION >= '1.9'
-      result
+      (mkpdf string, output_file, {:output_to_log_file => false}; nil)
+      File.binread("#{output_file}.pdf").to_s
     end
 
     def mkpdf_file(string, output_file)
-      pdf = create_pdf string, output_file
-      pdf.close
+      (mkpdf string, output_file; nil)
     end
 
     protected
-    def create_pdf(string, output_file, opt={})
+    def mkpdf(string, output_file, opt={})
       options = {
           :log_command => true,
           :output_log => true
       }.merge(opt)
 
-      path = exe
+      filename = Digest::SHA1.hexdigest(string)
 
-      path << " --silent - -o #{output_file}"
+      File.open(filename, 'w+') do |file|
+        file.puts string
+      end
+
+      path = exe
       path << " >> '#{log_file}' 2>> '#{log_file}'" if options[:output_to_log_file]
-      puts "Path: #{path.inspect}"
+      path << " #{filename} "
+      path << " --output #{output_file}.pdf"
 
       log path if options[:log_command]
 
-      pdf = IO.popen(path, 'w+')
-      pdf.puts string
-      pdf
+      result = (`#{path}`; nil)
+
+      puts result
+
+      File.binread("#{filename}.pdf")
     end
 
     def log(path)
