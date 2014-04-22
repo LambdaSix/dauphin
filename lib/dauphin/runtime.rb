@@ -16,9 +16,8 @@ module Dauphin
 
     def default_executable_path
       if Platform.windows?
-        return 'C:/Program Files/Prince/Engine/bin/prince'
-      end
-      if Platform.linux?
+        'C:/Program Files/Prince/Engine/bin/prince'
+      elsif Platform.linux?
         `which prince`.chomp
       end
     end
